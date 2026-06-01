@@ -1,0 +1,96 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+env:
+  # Opt into the Node.js 24 runtime ahead of the June 2026 forced migration.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  release:
+    name: Build and publish release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          check-latest: true
+          # No third-party dependencies (no go.sum), so module caching is a no-op.
+          cache: false
+
+      - name: Test
+        run: go test ./...
+
+      - name: Build binaries
+        env:
+          VERSION: ${{ github.ref_name }}
+          CGO_ENABLED: "0"
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          platforms=(
+            "darwin/amd64"
+            "darwin/arm64"
+            "linux/amd64"
+            "linux/arm64"
+            "windows/amd64"
+            "windows/arm64"
+          )
+          for platform in "${platforms[@]}"; do
+            GOOS="${platform%/*}"
+            GOARCH="${platform#*/}"
+            bin="unifi"
+            [ "$GOOS" = "windows" ] && bin="unifi.exe"
+            stage="unifi_${VERSION}_${GOOS}_${GOARCH}"
+            echo "Building ${GOOS}/${GOARCH}"
+            mkdir -p "dist/${stage}"
+            GOOS="$GOOS" GOARCH="$GOARCH" go build \
+              -trimpath -ldflags="-s -w" \
+              -o "dist/${stage}/${bin}" ./cmd/unifi
+            cp README.md LICENSE "dist/${stage}/"
+            if [ "$GOOS" = "windows" ]; then
+              (cd dist && zip -qr "${stage}.zip" "${stage}")
+            else
+              (cd dist && tar -czf "${stage}.tar.gz" "${stage}")
+            fi
+            rm -rf "dist/${stage}"
+          done
+
+      - name: Package Claude skill
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          (cd skills && zip -qr "../dist/unifi-network-manager-skill_${VERSION}.zip" unifi-network-manager)
+
+      - name: Generate checksums
+        run: |
+          set -euo pipefail
+          (cd dist && sha256sum * > SHA256SUMS.txt)
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="${{ github.ref_name }}"
+          # Recreate the release if it already exists so re-tagging is idempotent
+          # (the git tag itself is preserved).
+          if gh release view "$tag" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release delete "$tag" --repo "${{ github.repository }}" --yes --cleanup-tag=false
+          fi
+          gh release create "$tag" \
+            --repo "${{ github.repository }}" \
+            --title "$tag" \
+            --generate-notes \
+            dist/*

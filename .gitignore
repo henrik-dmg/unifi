@@ -1,0 +1,7 @@
+/unifi
+/dist/
+*.test
+.DS_Store
+
+# Local planning/design artifacts — never committed.
+/docs/superpowers/
