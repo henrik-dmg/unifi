@@ -351,6 +351,53 @@ func TestSM_TopLevelHelpMentionsSiteManager(t *testing.T) {
 	}
 }
 
+func TestSM_APIPassthrough_NonGetRequiresYes(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("UNIFI_API_KEY", "k")
+
+	// Without --yes: refused, Do not called.
+	f := &fakeSMAPI{obj: json.RawMessage(`{}`)}
+	withFakeSMAPI(t, f)
+	code, _, errb := run("site-manager", "api", "POST", "/ea/isp-metrics/5m/query", "--data", `{}`)
+	if code != 1 {
+		t.Fatalf("non-GET without --yes: code=%d want 1", code)
+	}
+	if f.doCalled {
+		t.Error("Do should not be called without --yes")
+	}
+	if !strings.Contains(errb, "--yes") {
+		t.Errorf("stderr %q should mention --yes", errb)
+	}
+
+	// With --yes: called.
+	f2 := &fakeSMAPI{obj: json.RawMessage(`{}`)}
+	withFakeSMAPI(t, f2)
+	code, _, errb = run("site-manager", "api", "POST", "/ea/isp-metrics/5m/query", "--data", `{}`, "--yes")
+	if code != 0 {
+		t.Fatalf("non-GET with --yes: code=%d stderr=%s", code, errb)
+	}
+	if !f2.doCalled || f2.doMethod != "POST" {
+		t.Errorf("Do should be called with POST when --yes given: called=%v method=%q", f2.doCalled, f2.doMethod)
+	}
+}
+
+func TestSM_MissingIDArgs(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("UNIFI_API_KEY", "k")
+	for _, args := range [][]string{
+		{"site-manager", "hosts", "get"},
+		{"site-manager", "sdwan", "get"},
+		{"site-manager", "sdwan", "status"},
+	} {
+		f := &fakeSMAPI{}
+		withFakeSMAPI(t, f)
+		code, _, errb := run(args...)
+		if code != 2 {
+			t.Errorf("args %v: code=%d want 2 (stderr=%s)", args, code, errb)
+		}
+	}
+}
+
 func TestSM_FlagValuesNotTreatedAsPositionals(t *testing.T) {
 	// --host-id, --duration, --begin, --end take values; their values must not be
 	// mistaken for the subgroup/action tokens by splitTokens.

@@ -338,11 +338,12 @@ func TestISPMetrics_GETWithTypeAndQuery(t *testing.T) {
 }
 
 func TestQueryISPMetrics_POSTBody(t *testing.T) {
-	var gotMethod, gotPath string
+	var gotMethod, gotPath, gotContentType string
 	var gotBody []byte
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotMethod = r.Method
 		gotPath = r.URL.Path
+		gotContentType = r.Header.Get("Content-Type")
 		gotBody, _ = io.ReadAll(r.Body)
 		fmt.Fprint(w, `{"data":{"ok":true}}`)
 	}))
@@ -361,6 +362,9 @@ func TestQueryISPMetrics_POSTBody(t *testing.T) {
 	}
 	if !strings.Contains(string(gotBody), "s1") {
 		t.Errorf("body = %s, want sites filter", gotBody)
+	}
+	if !strings.Contains(gotContentType, "application/json") {
+		t.Errorf("Content-Type = %q, want application/json", gotContentType)
 	}
 }
 
@@ -428,6 +432,24 @@ func TestMethods_EmptyArgsError(t *testing.T) {
 				t.Errorf("%s with empty arg should return an error", tc.name)
 			}
 		})
+	}
+}
+
+func TestDo_StatusNameErrorBranch(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		fmt.Fprint(w, `{"statusName":"UNAUTHORIZED","message":"bad key"}`)
+	}))
+	defer srv.Close()
+
+	c := newTestClient(srv.URL)
+	_, err := c.Do(context.Background(), http.MethodGet, "/v1/hosts", nil, nil)
+	apiErr, ok := err.(*client.APIError)
+	if !ok {
+		t.Fatalf("error type = %T, want *client.APIError", err)
+	}
+	if apiErr.StatusCode != 401 || apiErr.Code != "UNAUTHORIZED" || apiErr.Message != "bad key" {
+		t.Errorf("apiErr = %+v, want 401/UNAUTHORIZED/bad key", apiErr)
 	}
 }
 

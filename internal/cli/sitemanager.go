@@ -463,6 +463,12 @@ func smAPI(positionals, args []string, stdout, stderr io.Writer) int {
 		query = nil
 	}
 
+	if method != "GET" {
+		if !g.mutationAllowed(stderr) {
+			return 1
+		}
+	}
+
 	api, _, ok := buildSMAPI(g, stderr)
 	if !ok {
 		return 1
