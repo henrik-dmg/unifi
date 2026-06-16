@@ -77,4 +77,5 @@ Read-only · cursor pagination (`--all` follows `nextToken`, `--limit` = pageSiz
 | `site-manager sdwan status <id>` | GET | `/ea/sd-wan/configs/{id}/status` |
 
 Escape hatch: `unifi site-manager api <METHOD> <path>` (e.g.
-`unifi site-manager api GET /v1/hosts`).
+`unifi site-manager api GET /v1/hosts`). Like the local `api` command, a non-GET
+method requires `--yes` (the typed commands above are read-only and do not).

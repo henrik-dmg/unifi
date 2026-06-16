@@ -110,7 +110,9 @@ unifi sm hosts list                            # `sm` is a shorthand
 ```
 
 Anything not yet typed is reachable via `unifi site-manager api GET <path>`
-(e.g. `unifi site-manager api GET /v1/hosts`).
+(e.g. `unifi site-manager api GET /v1/hosts`). The typed commands above are all
+read-only and need no `--yes`. The `api` passthrough mirrors the local `api`
+command: a non-GET method (for when cloud write scope ships) requires `--yes`.
 
 ## Troubleshooting
 
