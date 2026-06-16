@@ -135,6 +135,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		return cmdVouchers(action, positionals, rest, stdout, stderr)
 	case "api":
 		return cmdAPI(action, positionals, rest, stdout, stderr)
+	case "site-manager", "sm":
+		return cmdSiteManager(action, positionals, rest, stdout, stderr)
 	default:
 		if handled, code := dispatchResource(group, action, positionals, rest, stdout, stderr); handled {
 			return code
@@ -191,7 +193,8 @@ func takesValue(flag string) bool {
 	switch name {
 	case "host", "api-key", "site", "o", "output", "limit", "port",
 		"name", "count", "minutes", "quota-mb", "guests", "rx-rate", "tx-rate",
-		"data", "data-file", "query":
+		"data", "data-file", "query",
+		"host-id", "duration", "begin", "end":
 		return true
 	}
 	return false
