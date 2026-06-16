@@ -197,6 +197,16 @@ func (c Config) Validate() error {
 	return nil
 }
 
+// ValidateCloud returns an error when the API key required by the Site Manager
+// (cloud) API is missing. Unlike Validate it does NOT require a host: the cloud
+// base URL is fixed (https://api.ui.com), so only the API key is needed.
+func (c Config) ValidateCloud() error {
+	if c.APIKey == "" {
+		return errors.New(`api-key is required (set --api-key, UNIFI_API_KEY, or run ` + "`unifi configure`)")
+	}
+	return nil
+}
+
 // NormalizeHost validates and canonicalizes a controller host. It accepts a
 // bare host or host:port, optionally prefixed with an http(s):// scheme (which
 // is stripped), and rejects values containing a path, query, fragment, or

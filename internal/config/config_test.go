@@ -560,6 +560,24 @@ func TestValidOutput(t *testing.T) {
 	}
 }
 
+func TestValidateCloud(t *testing.T) {
+	if err := (config.Config{APIKey: "k"}).ValidateCloud(); err != nil {
+		t.Errorf("APIKey present should validate, got %v", err)
+	}
+	err := (config.Config{}).ValidateCloud()
+	if err == nil {
+		t.Fatal("missing api key should fail ValidateCloud")
+	}
+	if !strings.Contains(err.Error(), "api-key") {
+		t.Errorf("error %q should mention api-key", err)
+	}
+	// Host is NOT required/validated for cloud — even a host that Validate would
+	// reject (contains a path) must not cause ValidateCloud to fail.
+	if err := (config.Config{Host: "attacker.com/path", APIKey: "k"}).ValidateCloud(); err != nil {
+		t.Errorf("cloud validation must not require/validate host, got %v", err)
+	}
+}
+
 func TestInsecurePermsWarning(t *testing.T) {
 	dir := t.TempDir()
 
