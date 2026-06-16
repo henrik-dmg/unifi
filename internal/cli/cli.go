@@ -342,6 +342,17 @@ Universal passthrough:
                             Flags: --data <json>, --data-file <file> (- = stdin),
                             --query k=v (repeatable). Non-GET requires --yes.
 
+Site Manager (cloud) — account-wide API at api.ui.com (alias: sm, read-only):
+  site-manager hosts list         List consoles on the account
+  site-manager hosts get <id>     Show a host
+  site-manager sites list         List sites across all hosts
+  site-manager devices list       List devices (--host-id <id> to filter)
+  site-manager isp-metrics get <5m|1h>    ISP metrics (--duration|--begin/--end)
+  site-manager isp-metrics query <5m|1h>  Filtered ISP query (--data)
+  site-manager sdwan list|get|status      SD-WAN configs
+  site-manager api <method> <path>        Cloud passthrough
+  Cloud commands need only an API key (no --host/--site).
+
 Resources (list/get/create/update/delete; writes require --yes):
   networks <action> [id]    /sites/{site}/networks
   firewall zones <action>   /sites/{site}/firewall/zones

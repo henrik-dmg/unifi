@@ -342,3 +342,27 @@ func TestSM_APIPassthrough_InvalidMethod(t *testing.T) {
 		t.Errorf("stderr %q should mention invalid method", errb)
 	}
 }
+
+func TestSM_TopLevelHelpMentionsSiteManager(t *testing.T) {
+	clearEnv(t)
+	_, out, _ := run("--help")
+	if !strings.Contains(out, "site-manager") {
+		t.Errorf("top-level usage should mention site-manager:\n%s", out)
+	}
+}
+
+func TestSM_FlagValuesNotTreatedAsPositionals(t *testing.T) {
+	// --host-id, --duration, --begin, --end take values; their values must not be
+	// mistaken for the subgroup/action tokens by splitTokens.
+	clearEnv(t)
+	t.Setenv("UNIFI_API_KEY", "k")
+	f := &fakeSMAPI{obj: json.RawMessage(`{}`)}
+	withFakeSMAPI(t, f)
+	code, _, errb := run("site-manager", "isp-metrics", "get", "5m", "--duration", "7d")
+	if code != 0 {
+		t.Fatalf("code=%d stderr=%s", code, errb)
+	}
+	if f.ispType != "5m" {
+		t.Errorf("ispType=%q want 5m (flag value leaked into positionals?)", f.ispType)
+	}
+}
