@@ -1,6 +1,6 @@
 ---
 name: unifi-network-manager
-description: Use when the user wants to inspect or manage a UniFi / Ubiquiti network — listing sites, devices (access points, switches, gateways), WiFi clients, guest vouchers, restarting a device, cycling a PoE port, authorizing a guest, or configuring firewall zones/policies, DNS, VLANs, WLANs/SSIDs, ACL rules, port forwarding, traffic routes, RADIUS profiles, or WAN interfaces. Triggers on UniFi, Ubiquiti, access point, WiFi, PoE, firewall, VLAN, SSID, ACL, RADIUS.
+description: Use when the user wants to inspect or manage a UniFi / Ubiquiti network — listing sites, devices (access points, switches, gateways), WiFi clients, guest vouchers, restarting a device, cycling a PoE port, authorizing a guest, or configuring firewall zones/policies, DNS, VLANs, WLANs/SSIDs, ACL rules, port forwarding, traffic routes, RADIUS profiles, or WAN interfaces; ALSO covers the account-wide UniFi Site Manager cloud API (api.ui.com) for listing hosts/consoles, cross-site devices, ISP metrics, and SD-WAN configs. Triggers on UniFi, Ubiquiti, access point, WiFi, PoE, firewall, VLAN, SSID, ACL, RADIUS, Site Manager, hosts, ISP metrics, SD-WAN.
 ---
 
 # UniFi Network Manager (CLI)
@@ -79,6 +79,38 @@ For firewall, DNS, networks/VLANs, WLANs, ACLs, port forwarding, traffic routes,
 RADIUS, WANs, VPN servers, or any other endpoint, the CLI reaches EVERY endpoint
 via typed resource commands or the `api` passthrough. See `resources.md` in this
 skill directory for the full path table and `api` usage.
+
+## Site Manager (cloud) commands
+
+Besides the local console API above, the CLI also wraps the **UniFi Site Manager
+API** — Ubiquiti's account-wide cloud API at `https://api.ui.com`. Use it to see
+*all* consoles ("hosts") on an account, devices across sites, ISP performance
+metrics, and SD-WAN configs — handy when a console is behind CGNAT or you manage
+many sites.
+
+Key differences from the local commands:
+- **Account-wide, not per-console.** No console URL (`--host`) or `--site` needed.
+- **Read-only today** (write scope is rolling out through 2026) — no `--yes`.
+- **Separate API key.** The cloud key is created at unifi.ui.com → Settings →
+  API Keys, and is generally *different* from the local console key. The CLI
+  reuses `UNIFI_API_KEY` for it; if cloud calls return 401/403 while local calls
+  work, the user likely needs to set their cloud key.
+
+```
+unifi site-manager hosts list                 # all consoles on the account
+unifi site-manager hosts get <hostId>
+unifi site-manager sites list
+unifi site-manager devices list --host-id <id> # filter to a console
+unifi site-manager isp-metrics get 1h --duration 7d
+unifi site-manager isp-metrics query 1h --data '{"sites":["<id>"]}'
+unifi site-manager sdwan list
+unifi site-manager sdwan get <configId>
+unifi site-manager sdwan status <configId>
+unifi sm hosts list                            # `sm` is a shorthand
+```
+
+Anything not yet typed is reachable via `unifi site-manager api GET <path>`
+(e.g. `unifi site-manager api GET /v1/hosts`).
 
 ## Troubleshooting
 

@@ -400,6 +400,44 @@ unifi vouchers delete 66b1e2f4a1b2c3d4e5f60099 --yes
 
 ---
 
+### `site-manager` — Site Manager cloud API (alias: `sm`)
+
+```sh
+unifi site-manager <subcommand> [args]
+# or using the short alias:
+unifi sm <subcommand> [args]
+```
+
+Account-wide cloud API at `https://api.ui.com`. Read-only. Requires only an API key — no `--host` or `--site` needed. Create a cloud key at [unifi.ui.com](https://unifi.ui.com) → **Settings → API Keys** (this key is typically different from your local console key; if cloud calls return 401/403 while local calls work, you need your cloud key in `UNIFI_API_KEY`).
+
+```sh
+# List all consoles on the account
+unifi site-manager hosts list
+unifi site-manager hosts get <hostId>
+
+# Sites and devices across all hosts
+unifi site-manager sites list
+unifi site-manager devices list
+unifi site-manager devices list --host-id <hostId>   # filter to one console
+
+# ISP performance metrics
+unifi site-manager isp-metrics get 1h --duration 7d
+unifi site-manager isp-metrics get 5m --begin 2026-06-01T00:00:00Z --end 2026-06-02T00:00:00Z
+unifi site-manager isp-metrics query 1h --data '{"sites":["<siteId>"]}'
+
+# SD-WAN configurations
+unifi site-manager sdwan list
+unifi site-manager sdwan get <configId>
+unifi site-manager sdwan status <configId>
+
+# Escape hatch — any cloud endpoint
+unifi site-manager api GET /v1/hosts
+```
+
+Supports `--all` (auto-paginate) and `--limit N`. Cloud commands are read-only and never require `--yes`. The `sm` alias is interchangeable with `site-manager`.
+
+---
+
 ## Full API coverage
 
 Beyond the curated `sites`/`devices`/`clients`/`vouchers` commands above, `unifi` exposes **every** UniFi Network Integration API endpoint through two complementary mechanisms:

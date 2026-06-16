@@ -58,3 +58,23 @@ source of truth; if a typed path is wrong, fall back to `unifi api <METHOD> <pat
 `memoryUtilizationPct`, `loadAverage{1,5,15}Min`, and `uplink.txRateBps`/`rxRateBps`.
 High memory (>90%) or load rising across the 1/5/15-min averages indicates a
 struggling device. `-o table` renders a readable summary for humans.
+
+## Site Manager (cloud) API
+
+Base: `https://api.ui.com` · Auth: `X-API-KEY` (reuses `UNIFI_API_KEY`) ·
+Read-only · cursor pagination (`--all` follows `nextToken`, `--limit` = pageSize).
+
+| Command | Method | Path |
+|---|---|---|
+| `site-manager hosts list` | GET | `/v1/hosts` |
+| `site-manager hosts get <id>` | GET | `/v1/hosts/{id}` |
+| `site-manager sites list` | GET | `/v1/sites` |
+| `site-manager devices list` | GET | `/v1/devices` (`?hostIds=`) |
+| `site-manager isp-metrics get <5m\|1h>` | GET | `/ea/isp-metrics/{type}` |
+| `site-manager isp-metrics query <5m\|1h>` | POST | `/ea/isp-metrics/{type}/query` |
+| `site-manager sdwan list` | GET | `/ea/sd-wan/configs` |
+| `site-manager sdwan get <id>` | GET | `/ea/sd-wan/configs/{id}` |
+| `site-manager sdwan status <id>` | GET | `/ea/sd-wan/configs/{id}/status` |
+
+Escape hatch: `unifi site-manager api <METHOD> <path>` (e.g.
+`unifi site-manager api GET /v1/hosts`).
