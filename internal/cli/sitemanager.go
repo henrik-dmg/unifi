@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/colindickson/unifi/internal/client"
@@ -261,16 +262,223 @@ func smDevices(positionals, args []string, stdout, stderr io.Writer) int {
 	})
 }
 
-// Temporary stubs — replaced in Task 5.
+// ---- isp-metrics ----
+
 func smISPMetrics(positionals, args []string, stdout, stderr io.Writer) int {
-	fmt.Fprintln(stderr, "unifi: not implemented")
-	return 2
+	if len(positionals) < 1 {
+		fmt.Fprintln(stderr, "unifi: site-manager isp-metrics requires an action (get or query)")
+		return 2
+	}
+	action := positionals[0]
+	switch action {
+	case "get":
+		if len(positionals) < 2 {
+			fmt.Fprintln(stderr, "unifi: site-manager isp-metrics get requires a type (5m or 1h)")
+			return 2
+		}
+		mtype := positionals[1]
+		var g globals
+		fs := newFlagSet("site-manager isp-metrics get", &g, stderr)
+		var duration, begin, end string
+		fs.StringVar(&duration, "duration", "", "24h|7d|30d")
+		fs.StringVar(&begin, "begin", "", "begin timestamp (RFC3339)")
+		fs.StringVar(&end, "end", "", "end timestamp (RFC3339)")
+		if !parseFlags(fs, &g, args, stderr) {
+			return 1
+		}
+		api, _, ok := buildSMAPI(g, stderr)
+		if !ok {
+			return 1
+		}
+		q := url.Values{}
+		if duration != "" {
+			q.Set("duration", duration)
+		}
+		if begin != "" {
+			q.Set("beginTimestamp", begin)
+		}
+		if end != "" {
+			q.Set("endTimestamp", end)
+		}
+		ctx, cancel := ctxWithTimeout()
+		defer cancel()
+		raw, err := api.ISPMetrics(ctx, mtype, q)
+		if err != nil {
+			return renderSMError(stderr, err)
+		}
+		if err := printJSON(stdout, raw); err != nil {
+			return renderError(stderr, err)
+		}
+		return 0
+	case "query":
+		if len(positionals) < 2 {
+			fmt.Fprintln(stderr, "unifi: site-manager isp-metrics query requires a type (5m or 1h)")
+			return 2
+		}
+		mtype := positionals[1]
+		var g globals
+		fs := newFlagSet("site-manager isp-metrics query", &g, stderr)
+		var df dataFlags
+		df.register(fs)
+		if !parseFlags(fs, &g, args, stderr) {
+			return 1
+		}
+		body, hasBody, err := df.body(stdinReader())
+		if err != nil {
+			fmt.Fprintf(stderr, "unifi: %v\n", err)
+			return 1
+		}
+		if !hasBody {
+			fmt.Fprintln(stderr, "unifi: site-manager isp-metrics query requires --data or --data-file")
+			return 1
+		}
+		api, _, ok := buildSMAPI(g, stderr)
+		if !ok {
+			return 1
+		}
+		ctx, cancel := ctxWithTimeout()
+		defer cancel()
+		raw, err := api.QueryISPMetrics(ctx, mtype, body)
+		if err != nil {
+			return renderSMError(stderr, err)
+		}
+		if err := printJSON(stdout, raw); err != nil {
+			return renderError(stderr, err)
+		}
+		return 0
+	default:
+		fmt.Fprintf(stderr, "unifi: unknown site-manager isp-metrics action %q (want get or query)\n", action)
+		return 2
+	}
 }
+
+// ---- sdwan ----
+
 func smSDWAN(positionals, args []string, stdout, stderr io.Writer) int {
-	fmt.Fprintln(stderr, "unifi: not implemented")
-	return 2
+	action := "list"
+	if len(positionals) > 0 {
+		action = positionals[0]
+	}
+	switch action {
+	case "list":
+		var g globals
+		fs := newFlagSet("site-manager sdwan list", &g, stderr)
+		if !parseFlags(fs, &g, args, stderr) {
+			return 1
+		}
+		api, _, ok := buildSMAPI(g, stderr)
+		if !ok {
+			return 1
+		}
+		ctx, cancel := ctxWithTimeout()
+		defer cancel()
+		items, err := api.SDWANConfigs(ctx, g.all, g.limit)
+		if err != nil {
+			return renderSMError(stderr, err)
+		}
+		return smPrintList(stdout, stderr, g, items, "ID\tNAME\tSTATUS", func(tw *tabwriter.Writer, m map[string]any) {
+			fmt.Fprintf(tw, "%s\t%s\t%s\n", strField(m, "id"),
+				firstField(m, "name"), firstField(m, "status", "state"))
+		})
+	case "get", "status":
+		if len(positionals) < 2 {
+			fmt.Fprintf(stderr, "unifi: site-manager sdwan %s requires a config id\n", action)
+			return 2
+		}
+		id := positionals[1]
+		var g globals
+		fs := newFlagSet("site-manager sdwan "+action, &g, stderr)
+		if !parseFlags(fs, &g, args, stderr) {
+			return 1
+		}
+		api, _, ok := buildSMAPI(g, stderr)
+		if !ok {
+			return 1
+		}
+		ctx, cancel := ctxWithTimeout()
+		defer cancel()
+		var raw json.RawMessage
+		var err error
+		if action == "status" {
+			raw, err = api.SDWANStatus(ctx, id)
+		} else {
+			raw, err = api.SDWANConfig(ctx, id)
+		}
+		if err != nil {
+			return renderSMError(stderr, err)
+		}
+		if err := printJSON(stdout, raw); err != nil {
+			return renderError(stderr, err)
+		}
+		return 0
+	default:
+		fmt.Fprintf(stderr, "unifi: unknown site-manager sdwan action %q\n", action)
+		return 2
+	}
 }
+
+// ---- cloud api passthrough ----
+
 func smAPI(positionals, args []string, stdout, stderr io.Writer) int {
-	fmt.Fprintln(stderr, "unifi: not implemented")
-	return 2
+	if len(positionals) < 2 {
+		fmt.Fprintln(stderr, "unifi: usage: site-manager api <METHOD> <path> [--data <json>] [--data-file <file>] [--query k=v]...")
+		return 2
+	}
+	method := strings.ToUpper(positionals[0])
+	if !validMethods[method] {
+		fmt.Fprintf(stderr, "unifi: invalid method %q (want GET, POST, PUT, PATCH, or DELETE)\n", method)
+		return 2
+	}
+	path := positionals[1]
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+
+	var g globals
+	fs := newFlagSet("site-manager api", &g, stderr)
+	var df dataFlags
+	df.register(fs)
+	var queries queryFlag
+	fs.Var(&queries, "query", "repeatable query parameter k=v")
+	if !parseFlags(fs, &g, args, stderr) {
+		return 1
+	}
+
+	body, hasBody, err := df.body(stdinReader())
+	if err != nil {
+		fmt.Fprintf(stderr, "unifi: %v\n", err)
+		return 1
+	}
+
+	query := url.Values{}
+	for _, kv := range queries {
+		k, v, ok := strings.Cut(kv, "=")
+		if !ok {
+			fmt.Fprintf(stderr, "unifi: invalid --query %q (want k=v)\n", kv)
+			return 1
+		}
+		query.Add(k, v)
+	}
+	if len(query) == 0 {
+		query = nil
+	}
+
+	api, _, ok := buildSMAPI(g, stderr)
+	if !ok {
+		return 1
+	}
+	var reqBody any
+	if hasBody {
+		reqBody = body
+	}
+	ctx, cancel := ctxWithTimeout()
+	defer cancel()
+	raw, err := api.Do(ctx, method, path, query, reqBody)
+	if err != nil {
+		return renderSMError(stderr, err)
+	}
+	if err := printJSON(stdout, raw); err != nil {
+		return renderError(stderr, err)
+	}
+	return 0
 }

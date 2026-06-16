@@ -199,3 +199,146 @@ func TestSM_UnknownSubgroup(t *testing.T) {
 		t.Errorf("stderr %q should name the bad subgroup", errb)
 	}
 }
+
+func TestSM_ISPMetricsGet(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("UNIFI_API_KEY", "k")
+	f := &fakeSMAPI{obj: json.RawMessage(`{"metrics":[]}`)}
+	withFakeSMAPI(t, f)
+	code, _, errb := run("site-manager", "isp-metrics", "get", "5m", "--duration", "24h")
+	if code != 0 {
+		t.Fatalf("code=%d stderr=%s", code, errb)
+	}
+	if f.ispType != "5m" {
+		t.Errorf("ispType = %q, want 5m", f.ispType)
+	}
+	if f.ispQuery.Get("duration") != "24h" {
+		t.Errorf("duration = %q, want 24h", f.ispQuery.Get("duration"))
+	}
+}
+
+func TestSM_ISPMetricsGet_BeginEnd(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("UNIFI_API_KEY", "k")
+	f := &fakeSMAPI{obj: json.RawMessage(`{}`)}
+	withFakeSMAPI(t, f)
+	code, _, errb := run("site-manager", "isp-metrics", "get", "1h",
+		"--begin", "2026-06-01T00:00:00Z", "--end", "2026-06-02T00:00:00Z")
+	if code != 0 {
+		t.Fatalf("code=%d stderr=%s", code, errb)
+	}
+	if f.ispQuery.Get("beginTimestamp") != "2026-06-01T00:00:00Z" {
+		t.Errorf("beginTimestamp = %q", f.ispQuery.Get("beginTimestamp"))
+	}
+	if f.ispQuery.Get("endTimestamp") != "2026-06-02T00:00:00Z" {
+		t.Errorf("endTimestamp = %q", f.ispQuery.Get("endTimestamp"))
+	}
+}
+
+func TestSM_ISPMetricsGet_RequiresType(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("UNIFI_API_KEY", "k")
+	f := &fakeSMAPI{}
+	withFakeSMAPI(t, f)
+	code, _, errb := run("site-manager", "isp-metrics", "get")
+	if code != 2 {
+		t.Errorf("code=%d want 2", code)
+	}
+	if !strings.Contains(errb, "type") {
+		t.Errorf("stderr %q should mention the type arg", errb)
+	}
+}
+
+func TestSM_ISPMetricsQuery(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("UNIFI_API_KEY", "k")
+	f := &fakeSMAPI{obj: json.RawMessage(`{}`)}
+	withFakeSMAPI(t, f)
+	code, _, errb := run("site-manager", "isp-metrics", "query", "1h", "--data", `{"sites":["s1"]}`)
+	if code != 0 {
+		t.Fatalf("code=%d stderr=%s", code, errb)
+	}
+	if f.ispType != "1h" {
+		t.Errorf("ispType = %q, want 1h", f.ispType)
+	}
+	if !strings.Contains(string(f.ispBody), "s1") {
+		t.Errorf("body = %s, want sites filter", f.ispBody)
+	}
+}
+
+func TestSM_ISPMetricsQuery_RequiresData(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("UNIFI_API_KEY", "k")
+	f := &fakeSMAPI{}
+	withFakeSMAPI(t, f)
+	code, _, errb := run("site-manager", "isp-metrics", "query", "1h")
+	if code != 1 {
+		t.Fatalf("query without --data should exit 1 (missing-body convention), got %d", code)
+	}
+	if !strings.Contains(errb, "data") {
+		t.Errorf("stderr %q should mention --data", errb)
+	}
+}
+
+func TestSM_SDWANListGetStatus(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("UNIFI_API_KEY", "k")
+
+	f := &fakeSMAPI{items: []json.RawMessage{json.RawMessage(`{"id":"c1","name":"Hub","status":"active"}`)}}
+	withFakeSMAPI(t, f)
+	code, out, errb := run("site-manager", "sdwan", "list", "-o", "table")
+	if code != 0 {
+		t.Fatalf("list code=%d stderr=%s", code, errb)
+	}
+	if !strings.Contains(out, "Hub") {
+		t.Errorf("table out %q missing config name", out)
+	}
+
+	f2 := &fakeSMAPI{obj: json.RawMessage(`{"id":"c1"}`)}
+	withFakeSMAPI(t, f2)
+	code, _, errb = run("site-manager", "sdwan", "get", "c1")
+	if code != 0 {
+		t.Fatalf("get code=%d stderr=%s", code, errb)
+	}
+	if f2.sdwanID != "c1" || f2.sdwanStatus {
+		t.Errorf("get routed wrong: id=%q status=%v", f2.sdwanID, f2.sdwanStatus)
+	}
+
+	f3 := &fakeSMAPI{obj: json.RawMessage(`{"state":"ok"}`)}
+	withFakeSMAPI(t, f3)
+	code, _, errb = run("site-manager", "sdwan", "status", "c1")
+	if code != 0 {
+		t.Fatalf("status code=%d stderr=%s", code, errb)
+	}
+	if f3.sdwanID != "c1" || !f3.sdwanStatus {
+		t.Errorf("status routed wrong: id=%q status=%v", f3.sdwanID, f3.sdwanStatus)
+	}
+}
+
+func TestSM_APIPassthrough(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("UNIFI_API_KEY", "k")
+	f := &fakeSMAPI{obj: json.RawMessage(`{"data":{"ok":true}}`)}
+	withFakeSMAPI(t, f)
+	code, _, errb := run("site-manager", "api", "GET", "/v1/hosts")
+	if code != 0 {
+		t.Fatalf("code=%d stderr=%s", code, errb)
+	}
+	if !f.doCalled || f.doMethod != "GET" || f.doPath != "/v1/hosts" {
+		t.Errorf("Do not called correctly: called=%v method=%q path=%q", f.doCalled, f.doMethod, f.doPath)
+	}
+}
+
+func TestSM_APIPassthrough_InvalidMethod(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("UNIFI_API_KEY", "k")
+	f := &fakeSMAPI{}
+	withFakeSMAPI(t, f)
+	code, _, errb := run("site-manager", "api", "FETCH", "/v1/hosts")
+	if code != 2 {
+		t.Errorf("code=%d want 2", code)
+	}
+	if !strings.Contains(errb, "method") {
+		t.Errorf("stderr %q should mention invalid method", errb)
+	}
+}
