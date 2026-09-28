@@ -595,7 +595,7 @@ func clientsAuthorize(positionals, args []string, stdout, stderr io.Writer) int 
 	}
 	ctx, cancel := ctxWithTimeout()
 	defer cancel()
-	raw, err := api.ClientAction(ctx, site, id, "AUTHORIZE_GUEST")
+	raw, err := api.ClientAction(ctx, site, id, "AUTHORIZE_GUEST_ACCESS")
 	if err != nil {
 		return renderError(stderr, err)
 	}
