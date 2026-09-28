@@ -568,7 +568,7 @@ func TestClientAuthorize(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("code=%d stderr=%s", code, errb)
 	}
-	if !f.clientActionCalled || f.clientActionArgs[2] != "AUTHORIZE_GUEST" {
+	if !f.clientActionCalled || f.clientActionArgs[2] != "AUTHORIZE_GUEST_ACCESS" {
 		t.Errorf("client action wrong: %+v", f.clientActionArgs)
 	}
 }
