@@ -20,7 +20,7 @@ unifi api <METHOD> <path> [--data <json>] [--data-file <file>] [--query k=v]...
 ```
 unifi api GET /sites/{site}/firewall/policies
 unifi api GET /sites/{site}/clients --query limit=50
-unifi api POST /sites/{site}/networks --data '{"management":"GATEWAY","name":"IoT","enabled":true,"vlanId":40}' --yes
+unifi api POST /sites/{site}/networks --yes --data '{"management":"GATEWAY","name":"IoT","enabled":true,"vlanId":40,"cellularBackupEnabled":false,"internetAccessEnabled":true,"isolationEnabled":false,"ipv4Configuration":{"autoScaleEnabled":false,"hostIpAddress":"192.168.40.1","prefixLength":24}}'  # GATEWAY-managed VLAN
 unifi api DELETE /sites/{site}/wifi/broadcasts/<id> --yes
 ```
 
@@ -30,7 +30,9 @@ Forms: `unifi <group> list` · `get <id>` · `create --data '<json>'` ·
 `update <id> --data '<json>'` · `delete <id>`.
 For firewall the sub comes first: `unifi firewall <zones|policies> <action> [id]`.
 
-Paths match the OpenAPI spec of UniFi Network application v10.6.106.
+Paths match the OpenAPI spec of UniFi Network application v10.6.106. The CLI works on
+every v10 version (10.0.162 to 10.6.106). `firewall policies` and `dns` need 10.1.84 or
+later, because 10.0.162 has no such endpoints.
 
 | Group | Path | Ops |
 |---|---|---|

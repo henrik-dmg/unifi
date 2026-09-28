@@ -371,7 +371,7 @@ unifi vouchers create [--name N] [--count C] [--minutes M] [--quota-mb MB] [--gu
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--name` | Voucher name | — |
+| `--name` | Voucher name (the API requires one) | `Voucher` |
 | `--count` | Number of vouchers to create | `1` |
 | `--minutes` | Time limit in minutes | `1440` (24 h) |
 | `--quota-mb` | Data usage limit in MB | unlimited |
@@ -465,9 +465,11 @@ unifi api <METHOD> <path> [--data <json>] [--data-file <file|->] [--query k=v]..
 # GET firewall policies for the resolved site
 unifi api GET /sites/{site}/firewall/policies
 
-# Create a network (POST with an inline body) — requires --yes
+# Create a gateway-managed network (POST with an inline body) — requires --yes.
+# The body varies by `management` type (GATEWAY, SWITCH, UNMANAGED); on
+# versions before 10.3.58, GATEWAY also requires `mdnsForwardingEnabled`.
 unifi api POST /sites/{site}/networks \
-  --data '{"management":"GATEWAY","name":"IoT","enabled":true,"vlanId":40}' --yes
+  --data '{"management":"GATEWAY","name":"IoT","enabled":true,"vlanId":40,"cellularBackupEnabled":false,"internetAccessEnabled":true,"isolationEnabled":false,"ipv4Configuration":{"autoScaleEnabled":false,"hostIpAddress":"192.168.40.1","prefixLength":24}}' --yes
 
 # Delete a DNS policy — requires --yes
 unifi api DELETE /sites/{site}/dns/policies/66b1e2f4a1b2c3d4e5f6abcd --yes
@@ -484,7 +486,7 @@ unifi api GET /sites/{site}/wifi/broadcasts
 
 ### Typed resource groups
 
-Each group supports `list`, `get`, `create`, `update`, and `delete` unless the table says otherwise. All paths are site-scoped (`/sites/{site}/...`) except `countries`. Paths below are match the OpenAPI spec of UniFi Network application **v10.6.106**.
+Each group supports `list`, `get`, `create`, `update`, and `delete` unless the table says otherwise. All paths are site-scoped (`/sites/{site}/...`) except `countries`. Paths below match the OpenAPI spec of UniFi Network application **v10.6.106**. The CLI works on every v10 version from **10.0.162** to **10.6.106**, except that `firewall policies` and `dns` need **10.1.84** or later (10.0.162 has no such endpoints).
 
 | Group | Path | Ops |
 |-------|------|-----|
