@@ -664,7 +664,7 @@ func vouchersCreate(args []string, stdout, stderr io.Writer) int {
 		rxRate  int
 		txRate  int
 	)
-	fs.StringVar(&name, "name", "", "voucher name")
+	fs.StringVar(&name, "name", "Voucher", "voucher name (required by the API)")
 	fs.IntVar(&count, "count", 1, "number of vouchers")
 	fs.IntVar(&minutes, "minutes", 1440, "time limit in minutes")
 	fs.IntVar(&quotaMB, "quota-mb", -1, "data usage limit (MB)")

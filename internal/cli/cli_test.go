@@ -607,6 +607,31 @@ func TestVoucherCreate(t *testing.T) {
 	}
 }
 
+func TestVoucherCreateDefaultName(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("UNIFI_HOST", "h")
+	t.Setenv("UNIFI_API_KEY", "k")
+	t.Setenv("UNIFI_SITE", "s1")
+
+	f := &fakeAPI{objRaw: json.RawMessage(`{}`)}
+	withFakeAPI(t, f)
+	if code, _, errb := run("vouchers", "create", "-o", "json", "--yes"); code != 0 {
+		t.Fatalf("code=%d stderr=%s", code, errb)
+	}
+	if f.createVoucherReq.Name == "" {
+		t.Error("name is required by the API; want a non-empty default")
+	}
+
+	f2 := &fakeAPI{objRaw: json.RawMessage(`{}`)}
+	withFakeAPI(t, f2)
+	if code, _, errb := run("vouchers", "create", "--name", "Day Pass", "-o", "json", "--yes"); code != 0 {
+		t.Fatalf("code=%d stderr=%s", code, errb)
+	}
+	if f2.createVoucherReq.Name != "Day Pass" {
+		t.Errorf("Name = %q, want %q", f2.createVoucherReq.Name, "Day Pass")
+	}
+}
+
 func TestVoucherCreateRateLimits(t *testing.T) {
 	clearEnv(t)
 	t.Setenv("UNIFI_HOST", "h")
